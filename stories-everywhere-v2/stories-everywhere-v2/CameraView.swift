@@ -9,19 +9,29 @@ import SwiftUI
 import AVFoundation
 
 struct CameraView: View {
-    @StateObject private var videoCapture = VideoCapture()
-//    @State private var isCameraReady = true
-
+//    @StateObject private var videoCapture = VideoCapture()
+    @State private var chosenImageUrl: URL?
+    @StateObject private var storyGenerator = StoryGenerator()
+    
     var body: some View {
             ZStack {
-                CameraPreview(videoCapture: videoCapture)
+                CameraPreview(videoCapture: storyGenerator.videoCapture)
                     .edgesIgnoringSafeArea(.all)
 
                 VStack {
                     Spacer()
 
                     Button(action: {
-                        videoCapture.startRecording()
+//                        storyGenerator.videoCapture.startRecording()
+                        storyGenerator.generate()
+//                       let urlAvailable = try await  videoCapture.UrlIsAvailable
+//                            guard let videoURL = videoCapture.recordedVideoURL else {
+//                                print("No recorded video URL")
+//                                return
+//                            }
+//                            
+//                            storyGenerator.getFrames(from: videoURL)
+//                        }
                     }) {
                         Text("start generation <3")
                             .padding()
@@ -30,11 +40,7 @@ struct CameraView: View {
                     }
                     .padding(.bottom, 40)
 
-                    if let url = videoCapture.recordedVideoURL {
-                        Text("Saved to: \(url.lastPathComponent)")
-                            .foregroundColor(.white)
-                            .padding(.bottom, 20)
-                    }
+                    
                 }
             }
         }
