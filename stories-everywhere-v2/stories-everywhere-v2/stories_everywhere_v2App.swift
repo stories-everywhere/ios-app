@@ -11,7 +11,7 @@ import SwiftUI
 struct stories_everywhere_v2App: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            CameraView()
         }
     }
 }

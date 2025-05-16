@@ -6,63 +6,33 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXContainerItemProxy section */
-		546612822DD73B0A00561C4C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5466126C2DD73B0800561C4C /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 546612732DD73B0800561C4C;
-			remoteInfo = "stories-everywhere-v2";
-		};
-		5466128C2DD73B0A00561C4C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5466126C2DD73B0800561C4C /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 546612732DD73B0800561C4C;
-			remoteInfo = "stories-everywhere-v2";
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXFileReference section */
 		546612742DD73B0800561C4C /* stories-everywhere-v2.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "stories-everywhere-v2.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		546612812DD73B0A00561C4C /* stories-everywhere-v2Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "stories-everywhere-v2Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		5466128B2DD73B0A00561C4C /* stories-everywhere-v2UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "stories-everywhere-v2UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		546612AB2DD7400500561C4C /* Exceptions for "stories-everywhere-v2" folder in "stories-everywhere-v2" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 546612732DD73B0800561C4C /* stories-everywhere-v2 */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		546612762DD73B0800561C4C /* stories-everywhere-v2 */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				546612AB2DD7400500561C4C /* Exceptions for "stories-everywhere-v2" folder in "stories-everywhere-v2" target */,
+			);
 			path = "stories-everywhere-v2";
-			sourceTree = "<group>";
-		};
-		546612842DD73B0A00561C4C /* stories-everywhere-v2Tests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "stories-everywhere-v2Tests";
-			sourceTree = "<group>";
-		};
-		5466128E2DD73B0A00561C4C /* stories-everywhere-v2UITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "stories-everywhere-v2UITests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		546612712DD73B0800561C4C /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5466127E2DD73B0A00561C4C /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		546612882DD73B0A00561C4C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -76,8 +46,6 @@
 			isa = PBXGroup;
 			children = (
 				546612762DD73B0800561C4C /* stories-everywhere-v2 */,
-				546612842DD73B0A00561C4C /* stories-everywhere-v2Tests */,
-				5466128E2DD73B0A00561C4C /* stories-everywhere-v2UITests */,
 				546612752DD73B0800561C4C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -86,8 +54,6 @@
 			isa = PBXGroup;
 			children = (
 				546612742DD73B0800561C4C /* stories-everywhere-v2.app */,
-				546612812DD73B0A00561C4C /* stories-everywhere-v2Tests.xctest */,
-				5466128B2DD73B0A00561C4C /* stories-everywhere-v2UITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -117,52 +83,6 @@
 			productReference = 546612742DD73B0800561C4C /* stories-everywhere-v2.app */;
 			productType = "com.apple.product-type.application";
 		};
-		546612802DD73B0A00561C4C /* stories-everywhere-v2Tests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 546612982DD73B0A00561C4C /* Build configuration list for PBXNativeTarget "stories-everywhere-v2Tests" */;
-			buildPhases = (
-				5466127D2DD73B0A00561C4C /* Sources */,
-				5466127E2DD73B0A00561C4C /* Frameworks */,
-				5466127F2DD73B0A00561C4C /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				546612832DD73B0A00561C4C /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				546612842DD73B0A00561C4C /* stories-everywhere-v2Tests */,
-			);
-			name = "stories-everywhere-v2Tests";
-			packageProductDependencies = (
-			);
-			productName = "stories-everywhere-v2Tests";
-			productReference = 546612812DD73B0A00561C4C /* stories-everywhere-v2Tests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		5466128A2DD73B0A00561C4C /* stories-everywhere-v2UITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5466129B2DD73B0A00561C4C /* Build configuration list for PBXNativeTarget "stories-everywhere-v2UITests" */;
-			buildPhases = (
-				546612872DD73B0A00561C4C /* Sources */,
-				546612882DD73B0A00561C4C /* Frameworks */,
-				546612892DD73B0A00561C4C /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				5466128D2DD73B0A00561C4C /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				5466128E2DD73B0A00561C4C /* stories-everywhere-v2UITests */,
-			);
-			name = "stories-everywhere-v2UITests";
-			packageProductDependencies = (
-			);
-			productName = "stories-everywhere-v2UITests";
-			productReference = 5466128B2DD73B0A00561C4C /* stories-everywhere-v2UITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -175,14 +95,6 @@
 				TargetAttributes = {
 					546612732DD73B0800561C4C = {
 						CreatedOnToolsVersion = 16.3;
-					};
-					546612802DD73B0A00561C4C = {
-						CreatedOnToolsVersion = 16.3;
-						TestTargetID = 546612732DD73B0800561C4C;
-					};
-					5466128A2DD73B0A00561C4C = {
-						CreatedOnToolsVersion = 16.3;
-						TestTargetID = 546612732DD73B0800561C4C;
 					};
 				};
 			};
@@ -201,28 +113,12 @@
 			projectRoot = "";
 			targets = (
 				546612732DD73B0800561C4C /* stories-everywhere-v2 */,
-				546612802DD73B0A00561C4C /* stories-everywhere-v2Tests */,
-				5466128A2DD73B0A00561C4C /* stories-everywhere-v2UITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		546612722DD73B0800561C4C /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5466127F2DD73B0A00561C4C /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		546612892DD73B0A00561C4C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -239,34 +135,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		5466127D2DD73B0A00561C4C /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		546612872DD73B0A00561C4C /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		546612832DD73B0A00561C4C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 546612732DD73B0800561C4C /* stories-everywhere-v2 */;
-			targetProxy = 546612822DD73B0A00561C4C /* PBXContainerItemProxy */;
-		};
-		5466128D2DD73B0A00561C4C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 546612732DD73B0800561C4C /* stories-everywhere-v2 */;
-			targetProxy = 5466128C2DD73B0A00561C4C /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		546612932DD73B0A00561C4C /* Debug */ = {
@@ -400,6 +269,8 @@
 				DEVELOPMENT_TEAM = VK96NA5TRQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "stories-everywhere-v2/Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "camera for taking videos that are saved in the temporary directory";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -428,6 +299,8 @@
 				DEVELOPMENT_TEAM = VK96NA5TRQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "stories-everywhere-v2/Info.plist";
+				INFOPLIST_KEY_NSCameraUsageDescription = "camera for taking videos that are saved in the temporary directory";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -443,78 +316,6 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
-		546612992DD73B0A00561C4C /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = VK96NA5TRQ;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "net.rapa-milk.stories-everywhere-v2Tests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/stories-everywhere-v2.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/stories-everywhere-v2";
-			};
-			name = Debug;
-		};
-		5466129A2DD73B0A00561C4C /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = VK96NA5TRQ;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "net.rapa-milk.stories-everywhere-v2Tests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/stories-everywhere-v2.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/stories-everywhere-v2";
-			};
-			name = Release;
-		};
-		5466129C2DD73B0A00561C4C /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = VK96NA5TRQ;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "net.rapa-milk.stories-everywhere-v2UITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "stories-everywhere-v2";
-			};
-			name = Debug;
-		};
-		5466129D2DD73B0A00561C4C /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = VK96NA5TRQ;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "net.rapa-milk.stories-everywhere-v2UITests";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "stories-everywhere-v2";
 			};
 			name = Release;
 		};
@@ -535,24 +336,6 @@
 			buildConfigurations = (
 				546612962DD73B0A00561C4C /* Debug */,
 				546612972DD73B0A00561C4C /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		546612982DD73B0A00561C4C /* Build configuration list for PBXNativeTarget "stories-everywhere-v2Tests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				546612992DD73B0A00561C4C /* Debug */,
-				5466129A2DD73B0A00561C4C /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		5466129B2DD73B0A00561C4C /* Build configuration list for PBXNativeTarget "stories-everywhere-v2UITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				5466129C2DD73B0A00561C4C /* Debug */,
-				5466129D2DD73B0A00561C4C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
