@@ -19,10 +19,10 @@ class StoryGenerator: ObservableObject {
     
     func generate(){
         videoCapture.startRecording()
-        
+        print("start waiting")
         self.waitURl()
         
-       
+        print("end generate")
            
         
     }
@@ -33,7 +33,6 @@ class StoryGenerator: ObservableObject {
                 print("waiting")
             }
         }  else{
-            // Stop recording after 3 seconds
             guard let url =  videoCapture.recordedVideoURL else {
                 print("no url")
                 return
@@ -49,7 +48,7 @@ class StoryGenerator: ObservableObject {
         func getFrames(from videoURL: URL) {
             isProcessing = true
             error = nil
-            chosenFrameURL = nil
+//            chosenFrameURL = nil
 
             saveAllFramesFromVideo(url: videoURL) { urls, error in
                 DispatchQueue.main.async {
@@ -64,6 +63,7 @@ class StoryGenerator: ObservableObject {
 
                     if let urls = urls, let first = urls.first {
                         self.chosenFrameURL = first
+                        print("chosen frame:",self.chosenFrameURL!)
                     } else {
                         self.error = NSError(
                             domain: "VideoProcessor",
@@ -73,7 +73,7 @@ class StoryGenerator: ObservableObject {
                     }
                 }
             }
-            print("chosen frame:",chosenFrameURL!)
+            
         }
 
         // MARK: - Frame Extraction Logic
