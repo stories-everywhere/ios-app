@@ -22,16 +22,8 @@ struct CameraView: View {
                     Spacer()
 
                     Button(action: {
-//                        storyGenerator.videoCapture.startRecording()
                         storyGenerator.generate()
-//                       let urlAvailable = try await  videoCapture.UrlIsAvailable
-//                            guard let videoURL = videoCapture.recordedVideoURL else {
-//                                print("No recorded video URL")
-//                                return
-//                            }
-//                            
-//                            storyGenerator.getFrames(from: videoURL)
-//                        }
+
                     }) {
                         Text("start generation <3")
                             .padding()
@@ -39,9 +31,15 @@ struct CameraView: View {
                             .cornerRadius(10)
                     }
                     .padding(.bottom, 40)
-
                     
                 }
+                VStack(alignment: .leading){
+                    
+                    Text(storyGenerator.statusMessage)
+                        .font(.headline)
+                    
+                }
+
             }
         }
 }

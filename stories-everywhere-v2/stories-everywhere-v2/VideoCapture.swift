@@ -12,8 +12,10 @@ class VideoCapture: NSObject, ObservableObject {
     private let movieOutput = AVCaptureMovieFileOutput()
     private var isRecording = false
 
-    @Published var recordedVideoURL: URL? = nil
-    @Published var UrlIsAvailable: Bool = false
+    var recordedVideoURL: URL? = nil
+    var UrlIsAvailable: Bool = false
+    @Published var onRecordingFinished: ((URL?) -> Void)?
+
     
     override init() {
         super.init()
@@ -88,6 +90,7 @@ extension VideoCapture: AVCaptureFileOutputRecordingDelegate {
                 DispatchQueue.main.async {
                     self.recordedVideoURL = outputFileURL
                     self.UrlIsAvailable = true
+                    self.onRecordingFinished?(outputFileURL)
                 }
             }
         }
