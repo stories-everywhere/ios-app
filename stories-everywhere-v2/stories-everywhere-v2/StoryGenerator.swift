@@ -21,6 +21,7 @@ class StoryGenerator: NSObject, ObservableObject {
     @Published var story: String = ""
     @Published var isPlayingAudio: Bool = false
     @Published var audioProgress: Double = 0.0
+    @Published var weather: String = "unrecognisable weather"
     
     // MARK: - Audio Properties
     private var audioPlayer: AVAudioPlayer?
@@ -47,21 +48,25 @@ class StoryGenerator: NSObject, ObservableObject {
         }
     }
     
+    // MARK: - Generation Handling
     func generate(){
+        Task{
+            await getLocationWeather()
+        }
         
         isProcessing = true
         error = nil
         chosenFrameURL = nil
-
+        
         let semaphore = DispatchSemaphore(value: 0)
-
+        
         var finalVideoURL: URL? = nil
-
+        
         videoCapture.onRecordingFinished = { url in
             finalVideoURL = url
             semaphore.signal()
         }
-
+        
         videoCapture.startRecording()
         print("Started recording, waiting synchronously...")
         self.statusMessage = "started recording"
@@ -98,14 +103,14 @@ class StoryGenerator: NSObject, ObservableObject {
         saveAllFramesFromVideo(url: videoURL) { urls, error in
             DispatchQueue.main.async {
                 print("getting frames1")
-
+                
                 self.isProcessing = false
-
+                
                 if let error = error {
                     self.error = error
                     return
                 }
-
+                
                 if let urls = urls, let first = urls.first {
                     self.chosenFrameURL = first
                     print("chosen frame:",self.chosenFrameURL!)
@@ -115,7 +120,7 @@ class StoryGenerator: NSObject, ObservableObject {
                     
                     Task {
                         do {
-                            self.storyResponse = try await self.generateStory(image: Data(contentsOf: self.chosenFrameURL!))
+                            self.storyResponse = try await self.requestStory(image: Data(contentsOf: self.chosenFrameURL!),weather: self.weather)
                             self.statusMessage = self.storyResponse?.text ?? "story not generated correctly found nil"
                             self.story = self.storyResponse?.text ?? ""
                             
@@ -137,18 +142,18 @@ class StoryGenerator: NSObject, ObservableObject {
             }
         }
     }
-
+    
     // MARK: - Frame Extraction Logic
     private func saveAllFramesFromVideo(url: URL, completion: @escaping ([URL]?, Error?) -> Void) {
         let asset = AVURLAsset(url: url)
-
+        
         // Load tracks asynchronously
         asset.loadTracks(withMediaType: .video) { tracks, error in
             guard let videoTrack = tracks?.first else {
                 completion(nil, error ?? NSError(domain: "VideoProcessor", code: 2, userInfo: [NSLocalizedDescriptionKey: "No video track found"]))
                 return
             }
-
+            
             do {
                 let reader = try AVAssetReader(asset: asset)
                 let outputSettings: [String: Any] = [
@@ -156,17 +161,17 @@ class StoryGenerator: NSObject, ObservableObject {
                 ]
                 let trackOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: outputSettings)
                 reader.add(trackOutput)
-
+                
                 guard reader.startReading() else {
                     completion(nil, reader.error)
                     return
                 }
-
+                
                 var frameURLs = [URL]()
                 let context = CIContext()
                 let tempDirectory = FileManager.default.temporaryDirectory
                 var frameCount = 0
-
+                
                 while reader.status == .reading {
                     if let sampleBuffer = trackOutput.copyNextSampleBuffer(),
                        let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
@@ -184,18 +189,58 @@ class StoryGenerator: NSObject, ObservableObject {
                         CMSampleBufferInvalidate(sampleBuffer)
                     }
                 }
-
+                
                 if reader.status == .completed {
                     completion(frameURLs, nil)
                 } else {
                     completion(nil, reader.error)
                 }
-
+                
             } catch {
                 completion(nil, error)
             }
         }
     }
+    
+    // MARK: - Importing Weather Information
+    
+    let weatherManager = WeatherManager()
+    @State var weatherResponse: ResponseBody?
+    let locationManager = LocationManager()
+
+    func getLocationWeather() async {
+        locationManager.requestLocation()
+        Task{
+            print("Loading location...")
+            while locationManager.isLoading {
+                
+            }
+            if let location = locationManager.location {
+                        print("Your coordinates are: \(location.longitude), \(location.latitude)")
+                        do {
+                            let response = try await weatherManager.getCurrentWeather(
+                                latitude: location.latitude,
+                                longitude: location.longitude
+                            )
+                            await MainActor.run {
+                                self.weatherResponse = response
+                                self.weather = response.weather[0].description
+                                print(self.weather)
+                            }
+                        } catch {
+                            print("Error getting weather: \(error)")
+                            await MainActor.run {
+                                self.weather = "unrecognisable weather"
+                            }
+                        }
+                    } else {
+                        await MainActor.run {
+                            self.weather = "unrecognisable weather"
+                        }
+                    }
+        }
+    }
+    
     
     // MARK: - Audio Handling
     @MainActor
@@ -310,7 +355,7 @@ class StoryGenerator: NSObject, ObservableObject {
         let text: String
         let event: String
         let processingTime: String
-
+        
         enum CodingKeys: String, CodingKey {
             case audioFiles = "audio_files"
             case text
@@ -318,8 +363,8 @@ class StoryGenerator: NSObject, ObservableObject {
             case processingTime = "processing_time"
         }
     }
-
-    func generateStory(image: Data, weather: String = "foggy", length: Int = 200, voice: String = "af_heart") async throws -> StoryResponse {
+    
+    func requestStory(image: Data, weather: String = "foggy", length: Int = 200, voice: String = "af_heart") async throws -> StoryResponse {
         var components = URLComponents(string: "https://langate-story-api.onrender.com/generate-story")!
         components.queryItems = [
             URLQueryItem(name: "weather", value: weather),
@@ -330,19 +375,19 @@ class StoryGenerator: NSObject, ObservableObject {
         var request = URLRequest(url: components.url!)
         request.httpMethod = "POST"
         request.timeoutInterval = 60.0 // Increase timeout for audio generation
-
+        
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-
+        
         var body = Data()
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"file\"; filename=\"file.jpg\"\r\n".data(using: .utf8)!)
         body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
         body.append(image)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
-
+        
         request.httpBody = body
-
+        
         let (data, response) = try await URLSession.shared.data(for: request)
         
         // Debug response

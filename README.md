@@ -15,6 +15,12 @@ A frame is extracted from the recorded video using AVAssetReader.
 
 The first valid frame is saved and selected (chosenFrameURL).
 
+## Get Weather Information
+During the generation pipeline the app asyncronously get the location of the device and uses the https://openweathermap.org/api to get the description of the current weather. This is used to prompt the LLM
+
+To use this feature you'll need an API key which you can save on a secret file and name it: ```weatherApiKey```
+
+
 ### Generate a Story
 Once a frame is selected:
 
