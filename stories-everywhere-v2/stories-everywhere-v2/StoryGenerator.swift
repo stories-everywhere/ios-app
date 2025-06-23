@@ -10,6 +10,14 @@ import AVFoundation
 import UIKit
 import SwiftUICore
 
+// MARK: - Audio Queue Item
+struct AudioQueueItem: Identifiable {
+    let id = UUID()
+    let data: Data
+    let title: String
+    let storyText: String
+}
+
 class StoryGenerator: NSObject, ObservableObject {
     // MARK: - Published Properties
     @Published var chosenFrameURL: URL? = nil
@@ -21,11 +29,14 @@ class StoryGenerator: NSObject, ObservableObject {
     @Published var story: String = ""
     @Published var isPlayingAudio: Bool = false
     @Published var audioProgress: Double = 0.0
+    @Published var audioQueue: [AudioQueueItem] = []
+    @Published var currentAudioIndex: Int = -1
+    @Published var currentAudioTitle: String = ""
     var weather: String = "unrecognisable weather"
     var date: String = "unkown date"
     
     // MARK: - Audio Properties
-    private var audioPlayer: AVAudioPlayer?
+    public var audioPlayer: AVAudioPlayer?
     private var audioTimer: Timer?
     private var audioSession: AVAudioSession = AVAudioSession.sharedInstance()
     
@@ -125,8 +136,8 @@ class StoryGenerator: NSObject, ObservableObject {
                             self.statusMessage = self.storyResponse?.text ?? "story not generated correctly found nil"
                             self.story = self.storyResponse?.text ?? ""
                             
-                            // Automatically play audio after story generation
-                            await self.playStoryAudio()
+                            // Add audio to queue instead of playing immediately
+                            await self.addStoryAudioToQueue()
                         } catch {
                             self.error = error
                             self.statusMessage = "Error generating story: \(error.localizedDescription)"
@@ -203,68 +214,122 @@ class StoryGenerator: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Importing Weather Information
-    
-//    let weatherManager = WeatherManager()
-//    @State var weatherResponse: ResponseBody?
-//    @State var weatherResponse: ResponseBody?
-//    let locationManager = LocationManager()
-//
-//    func getLocationWeather() async {
-//        locationManager.requestLocation()
-//        Task{
-//            print("Loading location...")
-//            while locationManager.isLoading {
-//                
-//            }
-//            if let location = locationManager.location {
-//                        print("Your coordinates are: \(location.longitude), \(location.latitude)")
-//                        do {
-//                            let response = try await weatherManager.getCurrentWeather(
-//                                latitude: location.latitude,
-//                                longitude: location.longitude
-//                            )
-//                            await MainActor.run {
-//                                self.weatherResponse = response
-//                                self.weather = response.weather[0].description
-//                                print(self.weather)
-//                            }
-//                        } catch {
-//                            print("Error getting weather: \(error)")
-//                            await MainActor.run {
-//                                self.weather = "unrecognisable weather"
-//                            }
-//                        }
-//                    } else {
-//                        await MainActor.run {
-//                            self.weather = "unrecognisable weather"
-//                        }
-//                    }
-//        }
-//    }
-    
-    
-    // MARK: - Audio Handling
+    // MARK: - Audio Queue Management
     @MainActor
-    func playStoryAudio() async {
+    func addStoryAudioToQueue() async {
         guard let storyResponse = storyResponse,
               !storyResponse.audioFiles.isEmpty else {
             print("No audio files available")
             return
         }
         
-        // Use the first audio file
-        let base64Audio = storyResponse.audioFiles[0]
+        // Add all audio files to queue
+        for (index, base64Audio) in storyResponse.audioFiles.enumerated() {
+            do {
+                let audioData = try decodeBase64Audio(base64Audio)
+                let title = "Story \(audioQueue.count + 1)" + (storyResponse.audioFiles.count > 1 ? " - Part \(index + 1)" : "")
+                let queueItem = AudioQueueItem(
+                    data: audioData,
+                    title: title,
+                    storyText: storyResponse.text
+                )
+                audioQueue.append(queueItem)
+                print("Added audio to queue: \(title)")
+            } catch {
+                print("Error decoding audio \(index): \(error)")
+            }
+        }
+        
+        // Start playing if nothing is currently playing
+        if !isPlayingAudio && !audioQueue.isEmpty && currentAudioIndex == -1 {
+            await playNextInQueue()
+        }
+    }
+    
+    @MainActor
+    func playNextInQueue() async {
+        guard !audioQueue.isEmpty else {
+            print("Audio queue is empty")
+            return
+        }
+        
+        // Stop current playback
+        stopAudio()
+        
+        // Move to next item or start from beginning
+        if currentAudioIndex < audioQueue.count - 1 {
+            currentAudioIndex += 1
+        } else if currentAudioIndex == -1 {
+            currentAudioIndex = 0
+        } else {
+            // Reached end of queue
+            currentAudioIndex = -1
+            statusMessage = "Playback queue completed"
+            return
+        }
+        
+        let currentItem = audioQueue[currentAudioIndex]
+        currentAudioTitle = currentItem.title
         
         do {
-            let audioData = try decodeBase64Audio(base64Audio)
-            try await playAudio(from: audioData)
+            try await playAudio(from: currentItem.data)
+            statusMessage = "Playing: \(currentItem.title)"
+        } catch {
+            print("Error playing audio: \(error)")
+            self.error = error
+            // Try next item in queue
+            await playNextInQueue()
+        }
+    }
+    
+    @MainActor
+    func playPreviousInQueue() async {
+        guard !audioQueue.isEmpty && currentAudioIndex > 0 else {
+            print("Cannot go to previous item")
+            return
+        }
+        
+        currentAudioIndex -= 1
+        let currentItem = audioQueue[currentAudioIndex]
+        currentAudioTitle = currentItem.title
+        
+        // Stop current playback
+        stopAudio()
+        
+        do {
+            try await playAudio(from: currentItem.data)
+            statusMessage = "Playing: \(currentItem.title)"
         } catch {
             print("Error playing audio: \(error)")
             self.error = error
         }
     }
     
+    func clearAudioQueue() {
+        stopAudio()
+        audioQueue.removeAll()
+        currentAudioIndex = -1
+        currentAudioTitle = ""
+        statusMessage = "Audio queue cleared"
+    }
+    
+    func removeFromQueue(at index: Int) {
+        guard index >= 0 && index < audioQueue.count else { return }
+        
+        // If removing currently playing item
+        if index == currentAudioIndex {
+            Task {
+                await playNextInQueue()
+            }
+        } else if index < currentAudioIndex {
+            // Adjust current index if we're removing an item before it
+            currentAudioIndex -= 1
+        }
+        
+        audioQueue.remove(at: index)
+    }
+    
+    // MARK: - Audio Playback
     private func decodeBase64Audio(_ base64String: String) throws -> Data {
         guard let audioData = Data(base64Encoded: base64String) else {
             throw NSError(domain: "AudioDecoding", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to decode base64 audio"])
@@ -273,9 +338,6 @@ class StoryGenerator: NSObject, ObservableObject {
     }
     
     private func playAudio(from data: Data) async throws {
-        // Stop any existing playback
-        stopAudio()
-        
         do {
             audioPlayer = try AVAudioPlayer(data: data)
             audioPlayer?.delegate = self
@@ -284,7 +346,6 @@ class StoryGenerator: NSObject, ObservableObject {
             await MainActor.run {
                 self.isPlayingAudio = true
                 self.audioProgress = 0.0
-                self.statusMessage = "Playing story audio..."
             }
             
             audioPlayer?.play()
@@ -415,7 +476,15 @@ extension StoryGenerator: AVAudioPlayerDelegate {
             self.audioProgress = flag ? 1.0 : 0.0
             self.audioTimer?.invalidate()
             self.audioTimer = nil
-            self.statusMessage = flag ? "Audio playback completed" : "Audio playback failed"
+            
+            if flag {
+                // Automatically play next item in queue
+                Task {
+                    await self.playNextInQueue()
+                }
+            } else {
+                self.statusMessage = "Audio playback failed"
+            }
         }
     }
     
