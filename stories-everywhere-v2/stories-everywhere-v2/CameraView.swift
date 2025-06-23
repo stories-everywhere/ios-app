@@ -58,28 +58,50 @@ struct CameraView: View {
                     Capsule()
                         .fill(.colorPayneGray)
                         .stroke(buttonRimmGradient, lineWidth: 3)
-                        .frame(width: 240, height: 80)
+                        .frame(width: 280, height: 80)
                     
-                    HStack(spacing: 20){
+                    HStack(spacing: 15){
+                        // Main generate/stop button
                         Button(action: {
-                            promptInputs.initialisedWeather()
-                            storyGenerator.weather = promptInputs.weather
-                            storyGenerator.date = promptInputs.date
-                            storyGenerator.generate()
+                            if storyGenerator.isContinuousMode {
+                                storyGenerator.stopContinuousGeneration()
+                            } else {
+                                promptInputs.initialisedWeather()
+                                storyGenerator.weather = promptInputs.weather
+                                storyGenerator.date = promptInputs.date
+                                storyGenerator.generate()
+                            }
                         }){
                             ZStack {
                                 Circle()
-                                    .fill(.colorFrenchGray)
+                                    .fill(storyGenerator.isContinuousMode ? .red.opacity(0.8) : .colorFrenchGray)
                                     .stroke(buttonRimmGradient, lineWidth: 3)
                                     .frame(width: 60)
-                                Image(systemName: "iphone.gen3.badge.play")
+                                
+                                Image(systemName: storyGenerator.isContinuousMode ? "stop.fill" : "iphone.gen3.badge.play")
                                     .fontWeight(.black)
                                     .foregroundStyle(.colorPayneGray)
                                     .font(.title)
                                     .imageScale(.large)
                             }.frame(width: 60)
                         }
-                        .disabled(storyGenerator.isProcessing)
+                        
+                        // Generation counter
+                        if storyGenerator.isContinuousMode {
+                            VStack(spacing: 2) {
+                                Text("Stories")
+                                    .font(.caption2)
+                                    .foregroundColor(.colorFrenchGray)
+                                    .fontWeight(.bold)
+                                
+                                Text("\(storyGenerator.generationCount)")
+                                    .font(.title2)
+                                    .foregroundColor(.colorPowderBlue)
+                                    .fontWeight(.bold)
+                            }
+                            .frame(width: 50)
+                        }
+                        
                         
                         //weather icons
                         VStack{
@@ -134,6 +156,55 @@ struct CameraView: View {
                 }
                 .padding(.top, 60)
                 
+                // Continuous mode indicator
+                if storyGenerator.isContinuousMode {
+                    HStack {
+                        Image(systemName: "infinity")
+                            .foregroundColor(.colorPowderBlue)
+                            .font(.caption)
+                        
+                        Text("Continuous Mode Active")
+                            .font(.caption)
+                            .foregroundColor(.colorPowderBlue)
+                            .fontWeight(.semibold)
+                        
+                        // Processing indicator
+                        if storyGenerator.isProcessing {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .tint(.colorPowderBlue)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.colorPayneGray.opacity(0.8))
+                    .cornerRadius(15)
+                    .padding(.top, 10)
+                } else {
+                    HStack {
+//                        Image(systemName: "infinity")
+//                            .foregroundColor(.colorPowderBlue)
+//                            .font(.caption)
+                        
+                        Text("Continuous Mode Not Active")
+                            .font(.caption)
+                            .foregroundColor(.colorPowderBlue)
+                            .fontWeight(.semibold)
+                        
+                        // Processing indicator
+                        if storyGenerator.isProcessing {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .tint(.colorPowderBlue)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.colorPayneGray.opacity(0.8))
+                    .cornerRadius(15)
+                    .padding(.top, 10)
+                }
+                
                 // Camera preview section
                 VStack{
                     Spacer()
@@ -156,6 +227,32 @@ struct CameraView: View {
                             
                             UnevenRoundedRectangle(cornerRadii: .init(topLeading: 50, bottomLeading: 20, bottomTrailing: 100, topTrailing: 30))
                                 .stroke(buttonRimmGradient, lineWidth: 15)
+                            
+                            // Recording indicator overlay
+                            if storyGenerator.isProcessing {
+                                VStack {
+                                    HStack {
+                                        Spacer()
+                                        HStack {
+                                            Circle()
+                                                .fill(.red)
+                                                .frame(width: 8, height: 8)
+//                                                .opacity(recordingOpacity)
+                                            
+                                            Text("REC")
+                                                .font(.caption2)
+                                                .fontWeight(.bold)
+                                                .foregroundColor(.white)
+                                        }
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(.black.opacity(0.7))
+                                        .cornerRadius(8)
+                                        .padding()
+                                    }
+                                    Spacer()
+                                }
+                            }
                         }
                         Spacer()
                         Spacer()
@@ -174,7 +271,7 @@ struct CameraView: View {
                 }
                 
                 // Audio progress bar (only show when audio is available)
-                if !storyGenerator.audioQueue.isEmpty || storyGenerator.isPlayingAudio {
+//                if !storyGenerator.audioQueue.isEmpty || storyGenerator.isPlayingAudio {
                     VStack(spacing: 8) {
                         // Current playing title
                         if !storyGenerator.currentAudioTitle.isEmpty {
@@ -187,34 +284,35 @@ struct CameraView: View {
                         // Progress bar with custom styling
                         ZStack {
                             Capsule()
-                                .fill(.colorPayneGray.opacity(0.3))
-                                .frame(height: 4)
+                                .fill(.colorPowderBlue)
+                                .frame(height: 6)
                             
                             GeometryReader { geometry in
                                 Capsule()
-                                    .fill(.colorPowderBlue)
+                                    .fill(.colorPayneGray)
                                     .frame(width: geometry.size.width * storyGenerator.audioProgress, height: 4)
                             }
                             .frame(height: 4)
                         }
-                        .frame(width: 200)
+                        .frame(width: audioControlWidth)
                         
                         // Time display
                         HStack {
                             Text(formatTime(storyGenerator.audioProgress * (storyGenerator.audioPlayer?.duration ?? 0)))
                                 .font(.caption2)
-                                .foregroundColor(.colorFrenchGray)
+                                .foregroundColor(.colorPrussianBlue)
                             
                             Spacer()
                             
                             Text(formatTime(storyGenerator.audioPlayer?.duration ?? 0))
                                 .font(.caption2)
-                                .foregroundColor(.colorFrenchGray)
+                                .foregroundColor(.colorPrussianBlue)
+                                
                         }
-                        .frame(width: 200)
+                        .frame(width: audioControlWidth)
                     }
                     .padding(.bottom, 10)
-                }
+//                }
                 
                 // Audio control panel
                 ZStack{
@@ -223,9 +321,10 @@ struct CameraView: View {
                         .stroke(buttonRimmGradient, lineWidth: 3)
                         .frame(width: audioControlWidth, height: 80)
                     
+                    
                     HStack(spacing: 15){
                         // Previous button (only show if queue has multiple items)
-                        if storyGenerator.audioQueue.count > 1 {
+//                        if storyGenerator.audioQueue.count > 1 {
                             Button(action: {
                                 Task {
                                     await storyGenerator.playPreviousInQueue()
@@ -244,7 +343,7 @@ struct CameraView: View {
                                 }.frame(width: 50)
                             }
                             .disabled(storyGenerator.currentAudioIndex <= 0)
-                        }
+//                        }
                         
                         // Play/Pause button
                         Button(action: {
@@ -295,7 +394,7 @@ struct CameraView: View {
                         .disabled(!canPlayNext)
                         
                         // Queue button (only show if there are items in queue)
-                        if !storyGenerator.audioQueue.isEmpty {
+//                        if !storyGenerator.audioQueue.isEmpty {
                             Button(action: {
                                 showQueue = true
                             }) {
@@ -318,7 +417,7 @@ struct CameraView: View {
                                     }
                                 }.frame(width: 40)
                             }
-                        }
+//                        }
                     }
                 }
                 .padding(.bottom, 40)
@@ -367,17 +466,17 @@ struct CameraView: View {
     
     // Computed properties for cleaner code
     private var audioControlWidth: CGFloat {
-        var width: CGFloat = 120 // Base width for play button
+        var width: CGFloat = 270 // Base width for play button
         
-        if storyGenerator.audioQueue.count > 1 {
-            width += 130 // Add space for prev/next buttons
-        } else {
-            width += 65 // Add space for just next button
-        }
-        
-        if !storyGenerator.audioQueue.isEmpty {
-            width += 55 // Add space for queue button
-        }
+//        if storyGenerator.audioQueue.count > 1 {
+//            width += 130 // Add space for prev/next buttons
+//        } else {
+//            width += 65 // Add space for just next button
+//        }
+//        
+//        if !storyGenerator.audioQueue.isEmpty {
+//            width += 55 // Add space for queue button
+//        }
         
         return width
     }

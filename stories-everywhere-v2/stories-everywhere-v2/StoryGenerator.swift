@@ -32,6 +32,9 @@ class StoryGenerator: NSObject, ObservableObject {
     @Published var audioQueue: [AudioQueueItem] = []
     @Published var currentAudioIndex: Int = -1
     @Published var currentAudioTitle: String = ""
+    @Published var isContinuousMode: Bool = false
+    @Published var generationCount: Int = 0
+    
     var weather: String = "unrecognisable weather"
     var date: String = "unkown date"
     
@@ -39,6 +42,10 @@ class StoryGenerator: NSObject, ObservableObject {
     public var audioPlayer: AVAudioPlayer?
     private var audioTimer: Timer?
     private var audioSession: AVAudioSession = AVAudioSession.sharedInstance()
+    
+    // MARK: - Continuous Generation Properties
+    private var continuousGenerationTimer: Timer?
+    private let generationInterval: TimeInterval = 30.0 // Generate every 30 seconds
     
     override init() {
         super.init()
@@ -48,6 +55,7 @@ class StoryGenerator: NSObject, ObservableObject {
     deinit {
         audioTimer?.invalidate()
         audioPlayer?.stop()
+        stopContinuousGeneration()
     }
     
     // MARK: - Audio Setup
@@ -60,18 +68,65 @@ class StoryGenerator: NSObject, ObservableObject {
         }
     }
     
+    // MARK: - Continuous Generation Control
+    func startContinuousGeneration() {
+        guard !isContinuousMode else { return }
+        
+        isContinuousMode = true
+        generationCount = 0
+        
+        // Start first generation immediately
+        generateStory()
+        
+        // Set up timer for subsequent generations
+        continuousGenerationTimer = Timer.scheduledTimer(withTimeInterval: generationInterval, repeats: true) { _ in
+            self.generateStory()
+        }
+        
+        statusMessage = "Continuous generation started"
+        print("Started continuous generation mode")
+    }
+    
+    func stopContinuousGeneration() {
+        guard isContinuousMode else { return }
+        
+        isContinuousMode = false
+        continuousGenerationTimer?.invalidate()
+        continuousGenerationTimer = nil
+        
+        statusMessage = "Continuous generation stopped"
+        print("Stopped continuous generation mode")
+    }
+    
+    func toggleContinuousGeneration() {
+        if isContinuousMode {
+            stopContinuousGeneration()
+        } else {
+            startContinuousGeneration()
+        }
+    }
+    
     // MARK: - Generation Handling
     func generate(){
-//        Task{
-//            await getLocationWeather()
-//        }
+        // This is the original single generation method
+        // Now it starts continuous mode
+        startContinuousGeneration()
+    }
+    
+    private func generateStory() {
+        // Don't start new generation if we're already processing one
+        // This prevents overlapping generations
+        guard !isProcessing else {
+            print("Generation already in progress, skipping this cycle")
+            return
+        }
         
+        generationCount += 1
         isProcessing = true
         error = nil
         chosenFrameURL = nil
         
         let semaphore = DispatchSemaphore(value: 0)
-        
         var finalVideoURL: URL? = nil
         
         videoCapture.onRecordingFinished = { url in
@@ -80,8 +135,12 @@ class StoryGenerator: NSObject, ObservableObject {
         }
         
         videoCapture.startRecording()
-        print("Started recording, waiting synchronously...")
-        self.statusMessage = "started recording"
+        print("Started recording #\(generationCount), waiting synchronously...")
+        
+        DispatchQueue.main.async {
+            self.statusMessage = "Recording story #\(self.generationCount)..."
+        }
+        
         // Wait (on background thread) until recording finishes
         DispatchQueue.global(qos: .userInitiated).async {
             let timeout = DispatchTime.now() + 30  // optional timeout (avoids infinite wait)
@@ -89,7 +148,7 @@ class StoryGenerator: NSObject, ObservableObject {
                 if let url = finalVideoURL {
                     print("Recording complete, extracting frames from: \(url)")
                     DispatchQueue.main.async {
-                        self.statusMessage = "extracting frames"
+                        self.statusMessage = "Extracting frames #\(self.generationCount)..."
                     }
                     self.getFrames(from: url)
                     
@@ -97,50 +156,58 @@ class StoryGenerator: NSObject, ObservableObject {
                     DispatchQueue.main.async {
                         self.isProcessing = false
                         self.error = NSError(domain: "VideoCapture", code: 4, userInfo: [NSLocalizedDescriptionKey: "Recording finished but no URL returned"])
+                        self.statusMessage = "Recording failed #\(self.generationCount)"
                     }
                 }
             } else {
                 DispatchQueue.main.async {
                     self.isProcessing = false
                     self.error = NSError(domain: "VideoCapture", code: 5, userInfo: [NSLocalizedDescriptionKey: "Recording timed out"])
+                    self.statusMessage = "Recording timed out #\(self.generationCount)"
                 }
             }
-            
         }
-        
     }
     
     // MARK: - Public API
     func getFrames(from videoURL: URL) {
         saveAllFramesFromVideo(url: videoURL) { urls, error in
             DispatchQueue.main.async {
-                print("getting frames1")
-                
-                self.isProcessing = false
+                print("getting frames for generation #\(self.generationCount)")
                 
                 if let error = error {
                     self.error = error
+                    self.isProcessing = false
+                    self.statusMessage = "Frame extraction failed #\(self.generationCount)"
                     return
                 }
                 
                 if let urls = urls, let first = urls.first {
                     self.chosenFrameURL = first
-                    print("chosen frame:",self.chosenFrameURL!)
+                    print("chosen frame for generation #\(self.generationCount):", self.chosenFrameURL!)
+                    
                     DispatchQueue.main.async {
-                        self.statusMessage = "frame chosen"
+                        self.statusMessage = "Generating story #\(self.generationCount)..."
                     }
                     
                     Task {
                         do {
-                            self.storyResponse = try await self.requestStory(image: Data(contentsOf: self.chosenFrameURL!),weather: self.weather, date: self.date)
-                            self.statusMessage = self.storyResponse?.text ?? "story not generated correctly found nil"
-                            self.story = self.storyResponse?.text ?? ""
+                            self.storyResponse = try await self.requestStory(image: Data(contentsOf: self.chosenFrameURL!), weather: self.weather, date: self.date)
+                            
+                            DispatchQueue.main.async {
+                                self.statusMessage = "Story #\(self.generationCount) completed!"
+                                self.story = self.storyResponse?.text ?? ""
+                                self.isProcessing = false
+                            }
                             
                             // Add audio to queue instead of playing immediately
                             await self.addStoryAudioToQueue()
                         } catch {
-                            self.error = error
-                            self.statusMessage = "Error generating story: \(error.localizedDescription)"
+                            DispatchQueue.main.async {
+                                self.error = error
+                                self.isProcessing = false
+                                self.statusMessage = "Story generation failed #\(self.generationCount): \(error.localizedDescription)"
+                            }
                         }
                     }
                     
@@ -150,6 +217,8 @@ class StoryGenerator: NSObject, ObservableObject {
                         code: 1,
                         userInfo: [NSLocalizedDescriptionKey: "No frames extracted"]
                     )
+                    self.isProcessing = false
+                    self.statusMessage = "No frames found #\(self.generationCount)"
                 }
             }
         }
@@ -227,7 +296,7 @@ class StoryGenerator: NSObject, ObservableObject {
         for (index, base64Audio) in storyResponse.audioFiles.enumerated() {
             do {
                 let audioData = try decodeBase64Audio(base64Audio)
-                let title = "Story \(audioQueue.count + 1)" + (storyResponse.audioFiles.count > 1 ? " - Part \(index + 1)" : "")
+                let title = "Story \(generationCount)" + (storyResponse.audioFiles.count > 1 ? " - Part \(index + 1)" : "")
                 let queueItem = AudioQueueItem(
                     data: audioData,
                     title: title,
