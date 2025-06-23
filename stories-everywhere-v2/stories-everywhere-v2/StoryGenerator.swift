@@ -1,0 +1,432 @@
+//
+//  StoryGeneration.swift
+//  stories-everywhere-v2
+//
+//  Created by Rachele Guzzon on 16/05/2025.
+//
+
+import Foundation
+import AVFoundation
+import UIKit
+import SwiftUICore
+
+class StoryGenerator: NSObject, ObservableObject {
+    // MARK: - Published Properties
+    @Published var chosenFrameURL: URL? = nil
+    @Published var isProcessing: Bool = false
+    @Published var error: Error? = nil
+    @Published var videoCapture = VideoCapture()
+    @Published var statusMessage: String = ""
+    @Published var storyResponse: StoryResponse? = nil
+    @Published var story: String = ""
+    @Published var isPlayingAudio: Bool = false
+    @Published var audioProgress: Double = 0.0
+    var weather: String = "unrecognisable weather"
+    var date: String = "unkown date"
+    
+    // MARK: - Audio Properties
+    private var audioPlayer: AVAudioPlayer?
+    private var audioTimer: Timer?
+    private var audioSession: AVAudioSession = AVAudioSession.sharedInstance()
+    
+    override init() {
+        super.init()
+        setupAudioSession()
+    }
+    
+    deinit {
+        audioTimer?.invalidate()
+        audioPlayer?.stop()
+    }
+    
+    // MARK: - Audio Setup
+    private func setupAudioSession() {
+        do {
+            try audioSession.setCategory(.playback, mode: .default, options: [.allowBluetooth, .allowBluetoothA2DP])
+            try audioSession.setActive(true)
+        } catch {
+            print("Failed to setup audio session: \(error)")
+        }
+    }
+    
+    // MARK: - Generation Handling
+    func generate(){
+//        Task{
+//            await getLocationWeather()
+//        }
+        
+        isProcessing = true
+        error = nil
+        chosenFrameURL = nil
+        
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        var finalVideoURL: URL? = nil
+        
+        videoCapture.onRecordingFinished = { url in
+            finalVideoURL = url
+            semaphore.signal()
+        }
+        
+        videoCapture.startRecording()
+        print("Started recording, waiting synchronously...")
+        self.statusMessage = "started recording"
+        // Wait (on background thread) until recording finishes
+        DispatchQueue.global(qos: .userInitiated).async {
+            let timeout = DispatchTime.now() + 30  // optional timeout (avoids infinite wait)
+            if semaphore.wait(timeout: timeout) == .success {
+                if let url = finalVideoURL {
+                    print("Recording complete, extracting frames from: \(url)")
+                    DispatchQueue.main.async {
+                        self.statusMessage = "extracting frames"
+                    }
+                    self.getFrames(from: url)
+                    
+                } else {
+                    DispatchQueue.main.async {
+                        self.isProcessing = false
+                        self.error = NSError(domain: "VideoCapture", code: 4, userInfo: [NSLocalizedDescriptionKey: "Recording finished but no URL returned"])
+                    }
+                }
+            } else {
+                DispatchQueue.main.async {
+                    self.isProcessing = false
+                    self.error = NSError(domain: "VideoCapture", code: 5, userInfo: [NSLocalizedDescriptionKey: "Recording timed out"])
+                }
+            }
+            
+        }
+        
+    }
+    
+    // MARK: - Public API
+    func getFrames(from videoURL: URL) {
+        saveAllFramesFromVideo(url: videoURL) { urls, error in
+            DispatchQueue.main.async {
+                print("getting frames1")
+                
+                self.isProcessing = false
+                
+                if let error = error {
+                    self.error = error
+                    return
+                }
+                
+                if let urls = urls, let first = urls.first {
+                    self.chosenFrameURL = first
+                    print("chosen frame:",self.chosenFrameURL!)
+                    DispatchQueue.main.async {
+                        self.statusMessage = "frame chosen"
+                    }
+                    
+                    Task {
+                        do {
+                            self.storyResponse = try await self.requestStory(image: Data(contentsOf: self.chosenFrameURL!),weather: self.weather, date: self.date)
+                            self.statusMessage = self.storyResponse?.text ?? "story not generated correctly found nil"
+                            self.story = self.storyResponse?.text ?? ""
+                            
+                            // Automatically play audio after story generation
+                            await self.playStoryAudio()
+                        } catch {
+                            self.error = error
+                            self.statusMessage = "Error generating story: \(error.localizedDescription)"
+                        }
+                    }
+                    
+                } else {
+                    self.error = NSError(
+                        domain: "VideoProcessor",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "No frames extracted"]
+                    )
+                }
+            }
+        }
+    }
+    
+    // MARK: - Frame Extraction Logic
+    private func saveAllFramesFromVideo(url: URL, completion: @escaping ([URL]?, Error?) -> Void) {
+        let asset = AVURLAsset(url: url)
+        
+        // Load tracks asynchronously
+        asset.loadTracks(withMediaType: .video) { tracks, error in
+            guard let videoTrack = tracks?.first else {
+                completion(nil, error ?? NSError(domain: "VideoProcessor", code: 2, userInfo: [NSLocalizedDescriptionKey: "No video track found"]))
+                return
+            }
+            
+            do {
+                let reader = try AVAssetReader(asset: asset)
+                let outputSettings: [String: Any] = [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+                ]
+                let trackOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: outputSettings)
+                reader.add(trackOutput)
+                
+                guard reader.startReading() else {
+                    completion(nil, reader.error)
+                    return
+                }
+                
+                var frameURLs = [URL]()
+                let context = CIContext()
+                let tempDirectory = FileManager.default.temporaryDirectory
+                var frameCount = 0
+                
+                while reader.status == .reading {
+                    if let sampleBuffer = trackOutput.copyNextSampleBuffer(),
+                       let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+                        let ciImage = CIImage(cvPixelBuffer: imageBuffer)
+                        if let cgImage = context.createCGImage(ciImage, from: ciImage.extent) {
+                            let uiImage = UIImage(cgImage: cgImage)
+                            let filename = "frame_\(frameCount).png"
+                            let fileURL = tempDirectory.appendingPathComponent(filename)
+                            if let data = uiImage.pngData() {
+                                try? data.write(to: fileURL)
+                                frameURLs.append(fileURL)
+                                frameCount += 1
+                            }
+                        }
+                        CMSampleBufferInvalidate(sampleBuffer)
+                    }
+                }
+                
+                if reader.status == .completed {
+                    completion(frameURLs, nil)
+                } else {
+                    completion(nil, reader.error)
+                }
+                
+            } catch {
+                completion(nil, error)
+            }
+        }
+    }
+    
+    // MARK: - Importing Weather Information
+    
+//    let weatherManager = WeatherManager()
+//    @State var weatherResponse: ResponseBody?
+//    @State var weatherResponse: ResponseBody?
+//    let locationManager = LocationManager()
+//
+//    func getLocationWeather() async {
+//        locationManager.requestLocation()
+//        Task{
+//            print("Loading location...")
+//            while locationManager.isLoading {
+//                
+//            }
+//            if let location = locationManager.location {
+//                        print("Your coordinates are: \(location.longitude), \(location.latitude)")
+//                        do {
+//                            let response = try await weatherManager.getCurrentWeather(
+//                                latitude: location.latitude,
+//                                longitude: location.longitude
+//                            )
+//                            await MainActor.run {
+//                                self.weatherResponse = response
+//                                self.weather = response.weather[0].description
+//                                print(self.weather)
+//                            }
+//                        } catch {
+//                            print("Error getting weather: \(error)")
+//                            await MainActor.run {
+//                                self.weather = "unrecognisable weather"
+//                            }
+//                        }
+//                    } else {
+//                        await MainActor.run {
+//                            self.weather = "unrecognisable weather"
+//                        }
+//                    }
+//        }
+//    }
+    
+    
+    // MARK: - Audio Handling
+    @MainActor
+    func playStoryAudio() async {
+        guard let storyResponse = storyResponse,
+              !storyResponse.audioFiles.isEmpty else {
+            print("No audio files available")
+            return
+        }
+        
+        // Use the first audio file
+        let base64Audio = storyResponse.audioFiles[0]
+        
+        do {
+            let audioData = try decodeBase64Audio(base64Audio)
+            try await playAudio(from: audioData)
+        } catch {
+            print("Error playing audio: \(error)")
+            self.error = error
+        }
+    }
+    
+    private func decodeBase64Audio(_ base64String: String) throws -> Data {
+        guard let audioData = Data(base64Encoded: base64String) else {
+            throw NSError(domain: "AudioDecoding", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to decode base64 audio"])
+        }
+        return audioData
+    }
+    
+    private func playAudio(from data: Data) async throws {
+        // Stop any existing playback
+        stopAudio()
+        
+        do {
+            audioPlayer = try AVAudioPlayer(data: data)
+            audioPlayer?.delegate = self
+            audioPlayer?.prepareToPlay()
+            
+            await MainActor.run {
+                self.isPlayingAudio = true
+                self.audioProgress = 0.0
+                self.statusMessage = "Playing story audio..."
+            }
+            
+            audioPlayer?.play()
+            startAudioProgressTimer()
+            
+        } catch {
+            await MainActor.run {
+                self.isPlayingAudio = false
+                self.error = error
+            }
+            throw error
+        }
+    }
+    
+    func stopAudio() {
+        audioTimer?.invalidate()
+        audioTimer = nil
+        audioPlayer?.stop()
+        audioPlayer = nil
+        
+        DispatchQueue.main.async {
+            self.isPlayingAudio = false
+            self.audioProgress = 0.0
+        }
+    }
+    
+    func pauseResumeAudio() {
+        guard let player = audioPlayer else { return }
+        
+        if player.isPlaying {
+            player.pause()
+            audioTimer?.invalidate()
+            audioTimer = nil
+            DispatchQueue.main.async {
+                self.isPlayingAudio = false
+            }
+        } else {
+            player.play()
+            startAudioProgressTimer()
+            DispatchQueue.main.async {
+                self.isPlayingAudio = true
+            }
+        }
+    }
+    
+    private func startAudioProgressTimer() {
+        audioTimer?.invalidate()
+        audioTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            DispatchQueue.main.async {
+                if let player = self.audioPlayer, player.isPlaying {
+                    self.audioProgress = player.currentTime / player.duration
+                } else {
+                    self.audioTimer?.invalidate()
+                    self.audioTimer = nil
+                }
+            }
+        }
+    }
+    
+    // MARK: - Story Generation
+    struct StoryRequest {
+        let image: Data
+        let weather: String
+        let length: Int
+        let voice: String
+    }
+    
+    struct StoryResponse: Decodable {
+        let audioFiles: [String]
+        let text: String
+        let event: String
+        let processingTime: String
+        
+        enum CodingKeys: String, CodingKey {
+            case audioFiles = "audio_files"
+            case text
+            case event
+            case processingTime = "processing_time"
+        }
+    }
+    
+    //date and voice are not being used in the generation yet
+    func requestStory(image: Data, weather: String = "foggy",date: String =  "unkown date", length: Int = 200, voice: String = "af_heart") async throws -> StoryResponse {
+        var components = URLComponents(string: "https://langate-story-api.onrender.com/generate-story")!
+        components.queryItems = [
+            URLQueryItem(name: "weather", value: weather),
+            URLQueryItem(name: "length", value: "\(length)"),
+            URLQueryItem(name: "voice", value: voice)
+        ]
+        
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 60.0 // Increase timeout for audio generation
+        
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"file.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(image)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        // Debug response
+        if let httpResponse = response as? HTTPURLResponse {
+            print("HTTP Status: \(httpResponse.statusCode)")
+        }
+        
+        let story = try JSONDecoder().decode(StoryResponse.self, from: data)
+        
+        // Debug log
+        print("Received story:", story.text)
+        print("Audio files count:", story.audioFiles.count)
+        return story
+    }
+}
+
+// MARK: - AVAudioPlayerDelegate
+extension StoryGenerator: AVAudioPlayerDelegate {
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        DispatchQueue.main.async {
+            self.isPlayingAudio = false
+            self.audioProgress = flag ? 1.0 : 0.0
+            self.audioTimer?.invalidate()
+            self.audioTimer = nil
+            self.statusMessage = flag ? "Audio playback completed" : "Audio playback failed"
+        }
+    }
+    
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        DispatchQueue.main.async {
+            self.isPlayingAudio = false
+            self.audioProgress = 0.0
+            self.audioTimer?.invalidate()
+            self.audioTimer = nil
+            self.error = error
+            self.statusMessage = "Audio decode error: \(error?.localizedDescription ?? "Unknown error")"
+        }
+    }
+}
