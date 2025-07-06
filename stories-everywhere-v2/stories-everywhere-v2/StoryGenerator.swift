@@ -9,6 +9,8 @@ import Foundation
 import AVFoundation
 import UIKit
 import SwiftUICore
+import CoreImage
+import CoreImage.CIFilterBuiltins
 
 // MARK: - Audio Queue Item
 struct AudioQueueItem: Identifiable {
@@ -169,7 +171,73 @@ class StoryGenerator: NSObject, ObservableObject {
         }
     }
     
-    // MARK: - Public API
+    // MARK: - Public API and find frame
+//    func getFrames(from videoURL: URL) {
+//        saveAllFramesFromVideo(url: videoURL) { urls, error in
+//            DispatchQueue.main.async {
+//                print("getting frames for generation #\(self.generationCount)")
+//                
+//                if let error = error {
+//                    self.error = error
+//                    self.isProcessing = false
+//                    self.statusMessage = "Frame extraction failed #\(self.generationCount)"
+//                    return
+//                }
+//                
+//                if let urls = urls {
+////                    self.chosenFrameURL = first
+////                    print("chosen frame for generation #\(self.generationCount):", self.chosenFrameURL!)
+//                    
+//                    self.findLeastBlurryFrame(from: urls) { bestFrameURL in
+//                                        if let bestFrame = bestFrameURL {
+//                                            self.chosenFrameURL = bestFrame
+//                                            print("Selected frame with best sharpness score")
+//                                        } else {
+//                                            // Fallback to first frame if analysis fails
+//                                            self.chosenFrameURL = urls.first
+//                                            print("Fallback to first frame")
+//                                        }
+//                                    }
+//                    
+//                    DispatchQueue.main.async {
+//                        self.statusMessage = "Generating story #\(self.generationCount)..."
+//                    }
+//                    
+//                    Task {
+//                        do {
+//                            self.storyResponse = try await self.requestStory(image: Data(contentsOf: self.chosenFrameURL!), weather: self.weather, date: self.date)
+//                            
+//                            DispatchQueue.main.async {
+//                                self.statusMessage = "Story #\(self.generationCount) completed!"
+//                                self.story = self.storyResponse?.text ?? ""
+//                                self.isProcessing = false
+//                            }
+//                            
+//                            // Add audio to queue instead of playing immediately
+//                            await self.addStoryAudioToQueue()
+//                        } catch {
+//                            DispatchQueue.main.async {
+//                                self.error = error
+//                                self.isProcessing = false
+//                                self.statusMessage = "Story generation failed #\(self.generationCount): \(error.localizedDescription)"
+//                            }
+//                        }
+//                    }
+//                    
+//                } else {
+//                    self.error = NSError(
+//                        domain: "VideoProcessor",
+//                        code: 1,
+//                        userInfo: [NSLocalizedDescriptionKey: "No frames extracted"]
+//                    )
+//                    self.isProcessing = false
+//                    self.statusMessage = "No frames found #\(self.generationCount)"
+//                }
+//            }
+//        }
+//    }
+    
+    
     func getFrames(from videoURL: URL) {
         saveAllFramesFromVideo(url: videoURL) { urls, error in
             DispatchQueue.main.async {
@@ -182,31 +250,58 @@ class StoryGenerator: NSObject, ObservableObject {
                     return
                 }
                 
-                if let urls = urls, let first = urls.first {
-                    self.chosenFrameURL = first
-                    print("chosen frame for generation #\(self.generationCount):", self.chosenFrameURL!)
+                if let urls = urls {
+                    self.statusMessage = "Analyzing frame quality #\(self.generationCount)..."
                     
-                    DispatchQueue.main.async {
-                        self.statusMessage = "Generating story #\(self.generationCount)..."
-                    }
-                    
-                    Task {
-                        do {
-                            self.storyResponse = try await self.requestStory(image: Data(contentsOf: self.chosenFrameURL!), weather: self.weather, date: self.date)
-                            
-                            DispatchQueue.main.async {
-                                self.statusMessage = "Story #\(self.generationCount) completed!"
-                                self.story = self.storyResponse?.text ?? ""
-                                self.isProcessing = false
+                    self.findLeastBlurryFrame(from: urls) { bestFrameURL in
+                        DispatchQueue.main.async {
+                            if let bestFrame = bestFrameURL {
+                                self.chosenFrameURL = bestFrame
+                                print("Selected frame with best sharpness score for generation #\(self.generationCount)")
+                            } else {
+                                // Fallback to first frame if analysis fails
+                                self.chosenFrameURL = urls.first
+                                print("Fallback to first frame for generation #\(self.generationCount)")
                             }
                             
-                            // Add audio to queue instead of playing immediately
-                            await self.addStoryAudioToQueue()
-                        } catch {
-                            DispatchQueue.main.async {
-                                self.error = error
+                            // Now that we have a chosen frame, proceed with story generation
+                            guard let chosenFrame = self.chosenFrameURL else {
+                                self.error = NSError(
+                                    domain: "VideoProcessor",
+                                    code: 3,
+                                    userInfo: [NSLocalizedDescriptionKey: "No frame could be selected"]
+                                )
                                 self.isProcessing = false
-                                self.statusMessage = "Story generation failed #\(self.generationCount): \(error.localizedDescription)"
+                                self.statusMessage = "Frame selection failed #\(self.generationCount)"
+                                return
+                            }
+                            
+                            self.statusMessage = "Generating story #\(self.generationCount)..."
+                            
+                            Task {
+                                do {
+                                    let imageData = try Data(contentsOf: chosenFrame)
+                                    self.storyResponse = try await self.requestStory(
+                                        image: imageData,
+                                        weather: self.weather,
+                                        date: self.date
+                                    )
+                                    
+                                    DispatchQueue.main.async {
+                                        self.statusMessage = "Story #\(self.generationCount) completed!"
+                                        self.story = self.storyResponse?.text ?? ""
+                                        self.isProcessing = false
+                                    }
+                                    
+                                    // Add audio to queue instead of playing immediately
+                                    await self.addStoryAudioToQueue()
+                                } catch {
+                                    DispatchQueue.main.async {
+                                        self.error = error
+                                        self.isProcessing = false
+                                        self.statusMessage = "Story generation failed #\(self.generationCount): \(error.localizedDescription)"
+                                    }
+                                }
                             }
                         }
                     }
@@ -223,7 +318,182 @@ class StoryGenerator: NSObject, ObservableObject {
             }
         }
     }
+    //MARK: - Least blurry frame detection
     
+    
+    func findLeastBlurryFrame(from urls: [URL], completion: @escaping (URL?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            var bestFrameURL: URL?
+            var highestSharpness: Double = 0.0
+            
+            let group = DispatchGroup()
+            let queue = DispatchQueue(label: "blur.analysis", attributes: .concurrent)
+            let semaphore = DispatchSemaphore(value: 4) // Limit concurrent operations
+            
+            for url in urls {
+                group.enter()
+                semaphore.wait()
+                
+                queue.async {
+                    defer {
+                        semaphore.signal()
+                        group.leave()
+                    }
+                    
+                    if let sharpness = self.calculateSharpness(for: url) {
+                        DispatchQueue.main.sync {
+                            if sharpness > highestSharpness {
+                                highestSharpness = sharpness
+                                bestFrameURL = url
+                            }
+                        }
+                        print("Frame \(url.lastPathComponent): sharpness = \(sharpness)")
+                    }
+                }
+            }
+            
+            group.notify(queue: .main) {
+                completion(bestFrameURL)
+            }
+        }
+    }
+
+    func calculateSharpness(for imageURL: URL) -> Double? {
+        guard let image = UIImage(contentsOfFile: imageURL.path),
+              let cgImage = image.cgImage else {
+            return nil
+        }
+        
+        let ciImage = CIImage(cgImage: cgImage)
+        let context = CIContext()
+        
+        // Convert to grayscale for better performance
+        let grayscaleFilter = CIFilter.colorMonochrome()
+        grayscaleFilter.inputImage = ciImage
+        grayscaleFilter.color = CIColor.white
+        grayscaleFilter.intensity = 1.0
+        
+        guard let grayscaleImage = grayscaleFilter.outputImage else { return nil }
+        
+        // Apply Laplacian filter to detect edges
+        let laplacianFilter = CIFilter.convolution3X3()
+        laplacianFilter.inputImage = grayscaleImage
+        laplacianFilter.weights = CIVector(values: [0, -1, 0, -1, 4, -1, 0, -1, 0], count: 9)
+        laplacianFilter.bias = 0
+        
+        guard let outputImage = laplacianFilter.outputImage else { return nil }
+        
+        // Calculate variance of the Laplacian
+        let extent = outputImage.extent
+        guard let cgOutputImage = context.createCGImage(outputImage, from: extent) else { return nil }
+        
+        return calculateVariance(from: cgOutputImage)
+    }
+
+    func calculateVariance(from cgImage: CGImage) -> Double? {
+        let width = cgImage.width
+        let height = cgImage.height
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        let totalBytes = height * bytesPerRow
+        
+        var pixelData = [UInt8](repeating: 0, count: totalBytes)
+        
+        guard let context = CGContext(
+            data: &pixelData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+        
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        
+        // Calculate variance of pixel intensities
+        var sum: Double = 0
+        var sumSquared: Double = 0
+        let totalPixels = width * height
+        
+        for i in stride(from: 0, to: totalBytes, by: bytesPerPixel) {
+            // Use grayscale value (average of RGB)
+            let r = Double(pixelData[i])
+            let g = Double(pixelData[i + 1])
+            let b = Double(pixelData[i + 2])
+            let intensity = (r + g + b) / 3.0
+            
+            sum += intensity
+            sumSquared += intensity * intensity
+        }
+        
+        let mean = sum / Double(totalPixels)
+        let variance = (sumSquared / Double(totalPixels)) - (mean * mean)
+        
+        return variance
+    }
+
+    // Alternative, simpler blur detection method using built-in filters
+    func calculateSharpnessSimple(for imageURL: URL) -> Double? {
+        guard let image = UIImage(contentsOfFile: imageURL.path),
+              let cgImage = image.cgImage else {
+            return nil
+        }
+        
+        let ciImage = CIImage(cgImage: cgImage)
+        let context = CIContext()
+        
+        // Use built-in edge detection
+        let edgeFilter = CIFilter(name: "CIEdges")!
+        edgeFilter.setValue(ciImage, forKey: kCIInputImageKey)
+        edgeFilter.setValue(1.0, forKey: kCIInputIntensityKey)
+        
+        guard let outputImage = edgeFilter.outputImage else { return nil }
+        
+        // Calculate average pixel intensity of edge-detected image
+        let extent = outputImage.extent
+        guard let cgOutputImage = context.createCGImage(outputImage, from: extent) else { return nil }
+        
+        return calculateAverageIntensity(from: cgOutputImage)
+    }
+
+    func calculateAverageIntensity(from cgImage: CGImage) -> Double? {
+        let width = cgImage.width
+        let height = cgImage.height
+        let bytesPerPixel = 4
+        let bytesPerRow = width * bytesPerPixel
+        let totalBytes = height * bytesPerRow
+        
+        var pixelData = [UInt8](repeating: 0, count: totalBytes)
+        
+        guard let context = CGContext(
+            data: &pixelData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+        
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        
+        var totalIntensity: Double = 0
+        let totalPixels = width * height
+        
+        for i in stride(from: 0, to: totalBytes, by: bytesPerPixel) {
+            let r = Double(pixelData[i])
+            let g = Double(pixelData[i + 1])
+            let b = Double(pixelData[i + 2])
+            totalIntensity += (r + g + b) / 3.0
+        }
+        
+        return totalIntensity / Double(totalPixels)
+    }
     // MARK: - Frame Extraction Logic
     private func saveAllFramesFromVideo(url: URL, completion: @escaping ([URL]?, Error?) -> Void) {
         let asset = AVURLAsset(url: url)

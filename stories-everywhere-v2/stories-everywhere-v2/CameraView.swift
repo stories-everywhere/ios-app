@@ -10,6 +10,8 @@ import AVFoundation
 
 struct CameraView: View {
     @ObservedObject var promptInputs: PromptInputs
+    @ObservedObject var deviceSpeed: DeviceSpeed
+
     @State private var chosenImageUrl: URL?
     @StateObject private var storyGenerator = StoryGenerator()
     @State private var showQueue = false
@@ -253,6 +255,28 @@ struct CameraView: View {
                                     Spacer()
                                 }
                             }
+                            
+                            // Status message overlay
+//                            VStack(alignment: .leading){
+                                HStack {
+                                    Spacer()
+                                    
+                                    if !storyGenerator.statusMessage.isEmpty {
+                                        Text(storyGenerator.statusMessage)
+                                            .font(.headline)
+                                            .foregroundColor(.colorFrenchGray)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(.colorPayneGray.opacity(0.8))
+                                            .cornerRadius(20)
+                                            .lineLimit(2)
+                                            .multilineTextAlignment(.center)
+                                            
+                                    }
+                                    
+                                    Spacer()
+                                }
+    
                         }
                         Spacer()
                         Spacer()
@@ -430,32 +454,7 @@ struct CameraView: View {
                 Spacer()
                 Spacer()
             }
-            
-            // Status message overlay
-            VStack(alignment: .leading){
-                HStack {
-                    Spacer()
-                    
-                    if !storyGenerator.statusMessage.isEmpty {
-                        Text(storyGenerator.statusMessage)
-                            .font(.headline)
-                            .foregroundColor(.colorFrenchGray)
-                            .padding(.bottom,4)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(.colorPayneGray.opacity(0.8))
-                            .cornerRadius(20)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            
-                    }
-                    
-                    Spacer()
-                }
-                
-                Spacer()
-            }
-            .padding(.top, 60)
+  
         }
         .background(backgroundGradient)
         .edgesIgnoringSafeArea(.all)
@@ -466,7 +465,7 @@ struct CameraView: View {
     
     // Computed properties for cleaner code
     private var audioControlWidth: CGFloat {
-        var width: CGFloat = 270 // Base width for play button
+        let width: CGFloat = 270 // Base width for play button
         
 //        if storyGenerator.audioQueue.count > 1 {
 //            width += 130 // Add space for prev/next buttons

@@ -11,11 +11,13 @@ import CoreLocation
 @main
 struct stories_everywhere_v2App: App {
     @StateObject var promptInputs : PromptInputs = PromptInputs()
-    
+    @StateObject var deviceSpeed : DeviceSpeed = DeviceSpeed()
+//    @StateObject private var blurDetectorResultModel = BlurDetectorResultModel()
+//    @StateObject private var blurDetector = BlurDetector()
     
     var body: some Scene {
         WindowGroup {
-            CameraView(promptInputs: promptInputs)
+            CameraView(promptInputs: promptInputs, deviceSpeed: deviceSpeed)
         }
     }
 }
@@ -49,3 +51,14 @@ class PromptInputs: ObservableObject {
         self.locationLoading = self.weatherManager.locationLoading
     }
 }
+
+@MainActor
+class DeviceSpeed: ObservableObject {
+    @Published var speed : CLLocationSpeed = 0
+    init() {
+        self.speed = CLLocationSpeed()
+    }
+
+}
+
+
