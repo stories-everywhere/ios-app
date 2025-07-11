@@ -55,3 +55,7 @@ When the story is being generated or audio is playing
 
 When errors occur
 
+# Currently Working BUGS:
+- Weather and location only load sometimes
+- Audio is cut-off
+
