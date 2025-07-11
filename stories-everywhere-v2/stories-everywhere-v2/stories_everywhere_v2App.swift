@@ -12,8 +12,7 @@ import CoreLocation
 struct stories_everywhere_v2App: App {
     @StateObject var promptInputs : PromptInputs = PromptInputs()
     @StateObject var deviceSpeed : DeviceSpeed = DeviceSpeed()
-//    @StateObject private var blurDetectorResultModel = BlurDetectorResultModel()
-//    @StateObject private var blurDetector = BlurDetector()
+
     
     var body: some Scene {
         WindowGroup {
