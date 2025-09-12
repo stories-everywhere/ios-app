@@ -4,6 +4,8 @@
 
 ## User settings
 xcuserdata/
+## api key
+stories-everywhere-v2/stories-everywhere-v2/secretAPI.swift
 
 ## Obj-C/Swift specific
 *.hmap
